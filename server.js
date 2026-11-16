@@ -9,7 +9,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, "public");
 const PRODUCTS_FILE = path.join(__dirname, "products.json");
-const GEMINI_MODEL = "gemini-2.5-flash-lite";
+const GEMINI_MODEL = "gemini-3.5-flash-lite";
 
 app.use(express.json({ limit: "2mb" }));
 
