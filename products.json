@@ -1,0 +1,65 @@
+[
+  {
+    "id": "PHI-LED-7W",
+    "brand": "Philips",
+    "product": "LED Bulb",
+    "variant": "7W",
+    "mrp": 120,
+    "sellingPrice": 70,
+    "family": "Philips LED Bulb"
+  },
+  {
+    "id": "PHI-LED-9W",
+    "brand": "Philips",
+    "product": "LED Bulb",
+    "variant": "9W",
+    "mrp": 150,
+    "sellingPrice": 85,
+    "family": "Philips LED Bulb"
+  },
+  {
+    "id": "PHI-LED-12W",
+    "brand": "Philips",
+    "product": "LED Bulb",
+    "variant": "12W",
+    "mrp": 220,
+    "sellingPrice": 125,
+    "family": "Philips LED Bulb"
+  },
+  {
+    "id": "POL-PANEL-15W-W",
+    "brand": "Polycab",
+    "product": "LED Panel",
+    "variant": "15W White",
+    "mrp": 700,
+    "sellingPrice": 350,
+    "family": "Polycab LED Panel"
+  },
+  {
+    "id": "POL-PANEL-15W-3C-SQ",
+    "brand": "Polycab",
+    "product": "LED Panel",
+    "variant": "15W 3-in-1 Colour, Square",
+    "mrp": 900,
+    "sellingPrice": 450,
+    "family": "Polycab LED Panel"
+  },
+  {
+    "id": "POL-PANEL-22W-W-SQ",
+    "brand": "Polycab",
+    "product": "LED Panel",
+    "variant": "22W White, Square",
+    "mrp": 1000,
+    "sellingPrice": 500,
+    "family": "Polycab LED Panel"
+  },
+  {
+    "id": "POL-PANEL-22W-3C-SQ",
+    "brand": "Polycab",
+    "product": "LED Panel",
+    "variant": "22W 3-in-1 Colour, Square",
+    "mrp": 1200,
+    "sellingPrice": 600,
+    "family": "Polycab LED Panel"
+  }
+]
