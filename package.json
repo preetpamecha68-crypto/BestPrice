@@ -2,18 +2,17 @@
   "name": "rajesh-electric-price-finder",
   "version": "1.0.0",
   "private": true,
-  "description": "AI product price finder for Rajesh Electric",
+  "description": "AI product price finder for Rajesh Electric and Hardware Store",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js"
+    "start": "node server.js"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "dependencies": {
-    "express": "^4.21.2",
-    "multer": "^1.4.5-lts.1",
-    "openai": "^4.77.0"
+    "@google/genai": "3.3.0",
+    "express": "4.21.2",
+    "multer": "1.4.5-lts.1"
   }
 }
