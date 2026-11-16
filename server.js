@@ -2,230 +2,288 @@ const express = require("express");
 const multer = require("multer");
 const fs = require("fs");
 const path = require("path");
-const OpenAI = require("openai");
+const crypto = require("crypto");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-const DATA_FILE = path.join(__dirname, "products.json");
 
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 8 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const allowed = ["image/jpeg", "image/png", "image/webp"];
-    cb(null, allowed.includes(file.mimetype));
-  }
-});
+const PORT = process.env.PORT || 3000;
+const PRODUCTS_FILE = path.join(__dirname, "products.json");
+const GEMINI_MODEL = "gemini-2.5-flash-lite";
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-function getProducts() {
-  return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024 },
+  fileFilter: (req, file, callback) => {
+    const allowed = ["image/jpeg", "image/png", "image/webp"];
+
+    if (!allowed.includes(file.mimetype)) {
+      return callback(new Error("Upload JPG, PNG or WEBP only."));
+    }
+
+    callback(null, true);
+  }
+});
+
+let geminiClient;
+
+async function getGeminiClient() {
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error("GEMINI_NOT_CONFIGURED");
+  }
+
+  if (!geminiClient) {
+    const { GoogleGenAI } = await import("@google/genai");
+
+    geminiClient = new GoogleGenAI({
+      apiKey: process.env.GEMINI_API_KEY
+    });
+  }
+
+  return geminiClient;
 }
 
-function priceDetails(product) {
-  const discount = product.mrp > 0
-    ? Math.round((1 - product.sellingPrice / product.mrp) * 10000) / 100
-    : 0;
+function readProducts() {
+  const products = JSON.parse(
+    fs.readFileSync(PRODUCTS_FILE, "utf8")
+  );
+
+  if (!Array.isArray(products)) {
+    throw new Error("Catalogue must be an array.");
+  }
+
+  return products;
+}
+
+function normalize(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function addPriceDetails(product) {
+  const mrp = Number(product.mrp);
+  const sellingPrice = Number(product.sellingPrice);
 
   return {
     ...product,
-    discount,
-    savings: product.mrp - product.sellingPrice
+    savings: mrp - sellingPrice,
+    discount: mrp > 0
+      ? Number(((mrp - sellingPrice) / mrp * 100).toFixed(2))
+      : 0
   };
 }
 
-// Get all products
-app.get("/api/products", (req, res) => {
-  const products = getProducts().map(priceDetails);
+function securePinMatches(provided, actual) {
+  if (!provided || !actual) return false;
 
+  const a = Buffer.from(String(provided));
+  const b = Buffer.from(String(actual));
+
+  return a.length === b.length &&
+    crypto.timingSafeEqual(a, b);
+}
+
+function parseGeminiJSON(text) {
+  return JSON.parse(
+    String(text || "")
+      .replace(/^```json\s*/i, "")
+      .replace(/^```\s*/i, "")
+      .replace(/\s*```$/i, "")
+      .trim()
+  );
+}
+
+// Health check
+app.get("/api/health", (req, res) => {
   res.json({
-    products,
-    count: products.length
+    status: "ok",
+    aiEngine: "Gemini",
+    aiConfigured: Boolean(process.env.GEMINI_API_KEY)
   });
 });
 
-// Identify product from uploaded photo
-app.post("/api/identify", upload.single("image"), async (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({
-      error: "Please upload a JPG, PNG or WEBP product photo."
-    });
-  }
-
-  if (!process.env.OPENAI_API_KEY) {
-    return res.status(503).json({
-      error: "AI is not configured. Add your OPENAI_API_KEY."
-    });
-  }
-
+// Product catalogue
+app.get("/api/products", (req, res) => {
   try {
-    const client = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
+    const products = readProducts().map(addPriceDetails);
+
+    res.json({
+      products,
+      count: products.length
     });
+  } catch (error) {
+    console.error(error);
 
-    const base64 = req.file.buffer.toString("base64");
-
-    const response = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content: `Identify the electrical product in the image.
-Return JSON with these keys:
-brand, product, wattage, shape, colour, confidence.
-Use null for details you cannot identify.
-Confidence must be a number between 0 and 1.
-Never invent unreadable details.`
-        },
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: "Identify this product and its visible variant."
-            },
-            {
-              type: "image_url",
-              image_url: {
-                url: `data:${req.file.mimetype};base64,${base64}`
-              }
-            }
-          ]
-        }
-      ],
-      max_tokens: 300
+    res.status(500).json({
+      error: "Could not load products."
     });
+  }
+});
 
-    const identified = JSON.parse(
-      response.choices[0].message.content || "{}"
-    );
-
-    const catalogue = getProducts();
-
-    const normalize = value =>
-      String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-
-    const brand = normalize(identified.brand);
-    const product = normalize(identified.product);
-    const wattage = normalize(identified.wattage);
-
-    let candidates = catalogue.filter(item => {
-      const brandMatch =
-        !brand ||
-        normalize(item.brand).includes(brand) ||
-        brand.includes(normalize(item.brand));
-
-      const productMatch =
-        !product ||
-        normalize(item.product).includes(product) ||
-        product.includes(normalize(item.product));
-
-      return brandMatch && productMatch;
-    });
-
-    if (!candidates.length && brand) {
-      candidates = catalogue.filter(item =>
-        normalize(item.brand).includes(brand)
-      );
+// AI product identification
+app.post("/api/identify", upload.single("image"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        error: "Please upload a product image."
+      });
     }
 
-    const exact = candidates.find(item =>
-      wattage && normalize(item.variant).includes(wattage)
+    const ai = await getGeminiClient();
+
+    const response = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+
+      contents: [{
+        role: "user",
+        parts: [
+          {
+            text: `
+Identify the electrical or hardware product in this photograph.
+
+Return ONLY JSON:
+{
+  "brand": "brand name or unknown",
+  "product": "product type or unknown",
+  "variant": "visible wattage, size or variant or unknown",
+  "confidence": "high, medium, or low"
+}
+
+Never invent specifications.
+If something is unclear, return unknown.
+`
+          },
+          {
+            inlineData: {
+              mimeType: req.file.mimetype,
+              data: req.file.buffer.toString("base64")
+            }
+          }
+        ]
+      }],
+
+      config: {
+        responseMimeType: "application/json"
+      }
+    });
+
+    const identified = parseGeminiJSON(response.text);
+    const products = readProducts();
+
+    const sameFamily = products.filter(product =>
+      normalize(product.brand) === normalize(identified.brand) &&
+      normalize(product.product) === normalize(identified.product)
     );
 
-    const matched = exact || candidates[0] || null;
+    const matchedProduct = sameFamily.find(product =>
+      normalize(product.variant) === normalize(identified.variant)
+    );
 
-    const variants = matched
-      ? catalogue
-          .filter(item => item.family === matched.family)
-          .map(priceDetails)
-      : [];
+    const matched = matchedProduct
+      ? addPriceDetails(matchedProduct)
+      : null;
+
+    const variants = sameFamily.map(addPriceDetails);
 
     res.json({
       identified,
-      matched: matched ? priceDetails(matched) : null,
+      matched,
+      match: matched,
+      product: matched,
       variants,
-      needsConfirmation:
-        !matched ||
-        !exact ||
-        Number(identified.confidence || 0) < 0.75,
-      message: !matched
-        ? "No catalogue match found. Search manually."
-        : exact
-          ? "Possible exact match found. Confirm the variant."
-          : "Related products found. Select the correct variant."
+      alternatives: variants,
+      needsConfirmation: !matched ||
+        String(identified.confidence).toLowerCase() === "low",
+      message: matched
+        ? "Possible match found. Verify the product and variant."
+        : sameFamily.length
+          ? "Product family found. Select the correct variant."
+          : "No catalogue match found. Search manually."
     });
 
   } catch (error) {
     console.error("Identification error:", error.message);
 
+    res.status(
+      error.message === "GEMINI_NOT_CONFIGURED" ? 503 : 500
+    ).json({
+      error: error.message === "GEMINI_NOT_CONFIGURED"
+        ? "Gemini API is not configured."
+        : "Product identification failed."
+    });
+  }
+});
+
+// Admin product update
+app.patch("/api/products/:id", async (req, res) => {
+  try {
+    if (!securePinMatches(
+      req.headers["x-admin-pin"],
+      process.env.ADMIN_PIN
+    )) {
+      return res.status(401).json({
+        error: "Invalid admin PIN."
+      });
+    }
+
+    const products = readProducts();
+
+    const index = products.findIndex(product =>
+      String(product.id) === String(req.params.id)
+    );
+
+    if (index === -1) {
+      return res.status(404).json({
+        error: "Product not found."
+      });
+    }
+
+    const allowed = [
+      "brand",
+      "product",
+      "variant",
+      "mrp",
+      "sellingPrice",
+      "family"
+    ];
+
+    for (const field of allowed) {
+      if (req.body[field] !== undefined) {
+        products[index][field] = req.body[field];
+      }
+    }
+
+    await fs.promises.writeFile(
+      PRODUCTS_FILE,
+      JSON.stringify(products, null, 2)
+    );
+
+    res.json({
+      message: "Product updated.",
+      product: addPriceDetails(products[index])
+    });
+
+  } catch (error) {
+    console.error("Update error:", error.message);
+
     res.status(500).json({
-      error: "Could not identify the product. Try a clearer photo."
+      error: "Could not update product."
     });
   }
 });
 
-// Update a product price (admin PIN required)
-app.patch("/api/products/:id", (req, res) => {
-  if (
-    !process.env.ADMIN_PIN ||
-    req.get("x-admin-pin") !== process.env.ADMIN_PIN
-  ) {
-    return res.status(401).json({
-      error: "Incorrect or missing admin PIN."
-    });
-  }
+// Error handling
+app.use((error, req, res, next) => {
+  console.error(error.message);
 
-  const products = getProducts();
-  const index = products.findIndex(
-    item => item.id === req.params.id
-  );
-
-  if (index === -1) {
-    return res.status(404).json({
-      error: "Product not found."
-    });
-  }
-
-  const mrp = Number(req.body.mrp);
-  const sellingPrice = Number(req.body.sellingPrice);
-
-  if (
-    !Number.isFinite(mrp) ||
-    !Number.isFinite(sellingPrice) ||
-    mrp < 0 ||
-    sellingPrice < 0 ||
-    sellingPrice > mrp
-  ) {
-    return res.status(400).json({
-      error: "Enter valid prices. Selling price cannot exceed MRP."
-    });
-  }
-
-  products[index].mrp = mrp;
-  products[index].sellingPrice = sellingPrice;
-
-  fs.writeFileSync(
-    DATA_FILE,
-    JSON.stringify(products, null, 2)
-  );
-
-  res.json({
-    product: priceDetails(products[index])
-  });
-});
-
-// Health check
-app.get("/api/health", (req, res) => {
-  res.json({
-    ok: true,
-    app: "Rajesh Electric Price Finder"
+  res.status(400).json({
+    error: error.message || "Request failed."
   });
 });
 
 app.listen(PORT, () => {
-  console.log(`Rajesh Electric app running on port ${PORT}`);
+  console.log(`Rajesh Electric running on port ${PORT}`);
 });
