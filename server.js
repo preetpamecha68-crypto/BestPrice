@@ -7,11 +7,34 @@ const crypto = require("crypto");
 const app = express();
 
 const PORT = process.env.PORT || 3000;
+const PUBLIC_DIR = path.join(__dirname, "public");
 const PRODUCTS_FILE = path.join(__dirname, "products.json");
 const GEMINI_MODEL = "gemini-2.5-flash-lite";
 
-app.use(express.json());
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.json({ limit: "2mb" }));
+
+// Serve frontend files
+app.use(express.static(PUBLIC_DIR, {
+  extensions: ["html"],
+  maxAge: "1h"
+}));
+
+// Support both common CSS filenames
+app.get(["/style.css", "/styles.css"], (req, res, next) => {
+  const candidates = [
+    path.join(PUBLIC_DIR, "styles.css"),
+    path.join(PUBLIC_DIR, "style.css")
+  ];
+
+  const cssFile = candidates.find(file => fs.existsSync(file));
+
+  if (!cssFile) {
+    return res.status(404).send("Stylesheet not found in public folder.");
+  }
+
+  res.type("text/css");
+  res.sendFile(cssFile);
+});
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -136,7 +159,6 @@ app.post("/api/identify", upload.single("image"), async (req, res) => {
 
     const response = await ai.models.generateContent({
       model: GEMINI_MODEL,
-
       contents: [{
         role: "user",
         parts: [
@@ -164,7 +186,6 @@ If something is unclear, return unknown.
           }
         ]
       }],
-
       config: {
         responseMimeType: "application/json"
       }
@@ -284,6 +305,6 @@ app.use((error, req, res, next) => {
   });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`Rajesh Electric running on port ${PORT}`);
 });
