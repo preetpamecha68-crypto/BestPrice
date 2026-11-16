@@ -3,44 +3,61 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Rajesh Electric | Price Finder</title>
-  <link rel="stylesheet" href="/styles.css">
+
+  <meta name="theme-color" content="#12372e">
+  <title>BestPrice | Staff Price Finder</title>
+
+  <link rel="stylesheet" href="/styles.css?v=3">
 </head>
+
 <body>
 
 <header class="topbar">
-  <div class="brand-mark">RE</div>
+  <div class="brand-mark">BP</div>
+
   <div>
-    <div class="brand-name">RAJESH ELECTRIC</div>
-    <div class="brand-sub">ELECTRICAL & HARDWARE STORE</div>
+    <div class="brand-name">BESTPRICE</div>
+    <div class="brand-sub">ELECTRICAL & HARDWARE PRICE FINDER</div>
   </div>
-  <span class="staff-pill">STAFF PRICE FINDER</span>
+
+  <span class="staff-pill">STAFF ACCESS</span>
 </header>
 
 <main class="shell">
 
   <section class="intro">
     <p class="eyebrow">YOUR STORE CATALOGUE</p>
-    <h1>Find the right price.<br><span>In seconds.</span></h1>
+
+    <h1>
+      Find the right price.<br>
+      <span>In seconds.</span>
+    </h1>
+
     <p class="intro-copy">
-      Take a photo of a product box or label,
-      or search the catalogue below.
+      Scan a product box or label, or search your store catalogue.
+      Get accurate staff pricing instantly.
     </p>
   </section>
 
   <section class="scan-card">
+
     <div class="scan-heading">
       <div>
         <p class="eyebrow">AI PRODUCT SCANNER</p>
         <h2>Scan a product</h2>
       </div>
+
       <div class="camera-icon">⌕</div>
     </div>
 
     <label class="upload-zone" for="photo">
       <div class="upload-symbol">＋</div>
+
       <strong>Choose a product photo</strong>
-      <span>Take a picture or upload an image · Max 8 MB</span>
+
+      <span>
+        Take a picture or upload an image · Max 8 MB
+      </span>
     </label>
 
     <input
@@ -53,6 +70,7 @@
 
     <div id="preview-wrap" class="preview-wrap" hidden>
       <img id="preview" alt="Selected product">
+
       <button id="clear-photo" class="text-button">
         Remove photo
       </button>
@@ -65,27 +83,33 @@
     <p id="scan-status" class="status">
       Add an image to begin.
     </p>
+
   </section>
 
   <section id="result-section" class="result-section" hidden>
+
     <div class="section-title">
       <div>
         <p class="eyebrow">SCAN RESULT</p>
         <h2>Product match</h2>
       </div>
+
       <span class="match-tag">CATALOGUE</span>
     </div>
 
     <div id="result-content"></div>
+
   </section>
 
   <section class="catalogue-section">
+
     <div class="section-title">
       <div>
-        <p class="eyebrow">TRIAL DATABASE</p>
+        <p class="eyebrow">STORE DATABASE</p>
         <h2>Browse products</h2>
       </div>
-      <span id="count" class="count">7 ITEMS</span>
+
+      <span id="count" class="count">LOADING</span>
     </div>
 
     <input
@@ -96,14 +120,16 @@
     >
 
     <div id="catalogue" class="product-list"></div>
+
   </section>
 
   <footer>
-    RAJESH ELECTRIC & HARDWARE STORE · Trial catalogue v1
+    BESTPRICE · STAFF PRICE FINDER
   </footer>
 
 </main>
 
-<script src="/app.js"></script>
+<script src="/app.js?v=3"></script>
+
 </body>
 </html>
